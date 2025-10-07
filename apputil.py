@@ -71,7 +71,24 @@ class Genius:
                 return self._get_mock_search_data(search_term)
             
             json_data = response.json()
-            return json_data.get('response', {}).get('hits', [])
+            
+            # More robust handling of API response structure
+            if not json_data:
+                print("Warning: Empty search response from API")
+                return self._get_mock_search_data(search_term)
+            
+            if 'response' not in json_data:
+                print("Warning: Unexpected search response format - missing 'response' key")
+                return self._get_mock_search_data(search_term)
+            
+            response_data = json_data.get('response', {})
+            hits = response_data.get('hits', [])
+            
+            if not hits:
+                print(f"Warning: No search results found for '{search_term}'")
+                return []
+            
+            return hits
             
         except Exception as e:
             print(f"Warning: API request failed ({e}). Using mock data.")
@@ -106,12 +123,29 @@ class Genius:
                 return self._get_mock_artist_data(artist_id)
             
             json_data = response.json()
-            return json_data.get('response', {}).get('artist', {})
+            
+            # More robust handling of API response structure
+            if not json_data:
+                print("Warning: Empty response from API")
+                return self._get_mock_artist_data(artist_id)
+            
+            if 'response' not in json_data:
+                print("Warning: Unexpected API response format - missing 'response' key")
+                return self._get_mock_artist_data(artist_id)
+            
+            response_data = json_data.get('response', {})
+            if 'artist' not in response_data:
+                print("Warning: No artist data in API response")
+                return self._get_mock_artist_data(artist_id)
+            
+            return json_data  # Return complete API response with 'response' key
             
         except Exception as e:
             print(f"Warning: Artist API request failed ({e}). Using mock "
                   f"data.")
-            return self._get_mock_artist_data(artist_id)
+            # Return mock data in the same format as API response
+            mock_artist = self._get_mock_artist_data(artist_id)
+            return {"meta": {"status": 200}, "response": {"artist": mock_artist}}
     
     def _get_mock_search_data(self, search_term):
         """
@@ -203,9 +237,9 @@ class Genius:
             return {}
         
         # Step 2: Get detailed artist information using the artist ID
-        artist_info = self._get_artist_info(artist_id)
+        api_response = self._get_artist_info(artist_id)
         
-        return artist_info
+        return api_response  # Return complete API response with 'response' key
     
     # =========================================================================
     # EXERCISE 3: GET_ARTISTS METHOD (PLURAL)
@@ -244,7 +278,14 @@ class Genius:
             try:
                 # Get artist information using the get_artist method from
                 # Exercise 2
-                artist_info = self.get_artist(search_term)
+                api_response = self.get_artist(search_term)
+                
+                # Extract artist data from the API response
+                artist_info = {}
+                if (isinstance(api_response, dict) and 
+                    'response' in api_response and 
+                    'artist' in api_response['response']):
+                    artist_info = api_response['response']['artist']
                 
                 if artist_info:
                     result = {
